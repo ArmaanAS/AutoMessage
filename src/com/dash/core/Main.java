@@ -750,65 +750,7 @@ public class Main {
 			
 			
 		}
-		if (msg.toLowerCase().equals("/ppp")) {
-			The5zigAPI.getAPI().getServerPlayers().forEach(np -> {
-//				Debug.chatDebug("Invalid: " + (np.getDisplayName() == null));
-				try {
-					Class wnpi = Class.forName("WrappedNetworkPlayerInfo");
-					Object p = wnpi.cast(np);
-					
-					try {
-						Field wrapped = p.getClass().getDeclaredField("wrapped");
-						wrapped.setAccessible(true);
-						try {
-							Object bsa = wrapped.get(p);
-							
-							try {
-								Method health = bsa.getClass().getDeclaredMethod("n");
-								
-								int h;
-								try {
-									h = (int) health.invoke(bsa);
-									
-									Debug.chatDebug(np.getGameProfile().getName() + "'s Health: " + h);
-									
-									try {
-										Field dh = bsa.getClass().getDeclaredField("i");
-										dh.setAccessible(true);
-										
-										int d = dh.getInt(bsa);
-										
-										Debug.chatDebug("dh: " + d);
-									} catch (NoSuchFieldException | SecurityException e) {
-										Debug.chatError("dh field not found!");
-										e.printStackTrace();
-									} 
-								} catch (InvocationTargetException e) {
-									Debug.chatError("Failed to invoke getDisplayHealth method.");
-									e.printStackTrace();
-								}
-								
-							} catch (NoSuchMethodException e) {
-								Debug.chatError("Cant find Method.");
-								e.printStackTrace();
-							}
-						} catch (IllegalArgumentException | IllegalAccessException e) {
-							Debug.chatError("Can't get wrapped object bsa.");
-							e.printStackTrace();
-						}
-						
-					} catch (NoSuchFieldException | SecurityException e) {
-						Debug.chatError("Field not found!");
-						e.printStackTrace();
-					} 
-				} catch (ClassNotFoundException e) {
-					Debug.chatError("Class not found!");
-					e.printStackTrace();
-				}
-			});
-			
-			event.setCancelled(true);
-		}
+		
 		
 		if (msg.toLowerCase().startsWith("/spec")) {
 			specials = !specials;
