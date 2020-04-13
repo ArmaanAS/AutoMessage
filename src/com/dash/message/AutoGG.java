@@ -4,6 +4,9 @@ import java.util.Random;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import com.dash.core.StateHandler;
+import com.dash.message.condition.Condition;
+import com.dash.message.condition.PresetCondition;
 import com.dash.utils.Chat;
 import com.dash.utils.Debug;
 import com.dash.utils.DelayedSend;
@@ -24,13 +27,13 @@ public class AutoGG implements Runnable {
 	
 	public static void timeGG(String msg) {
 		
-		if (Preset.EquationSolver.matches(msg)) {
-			DelayedSend.SendMessage(
-				Replace.replacePresets("", Replace.EQUATION, msg), 
-				Chat.GLOBAL, new Random().nextInt(1000) + 750
-			);
-			return;
-		}
+//		if (Preset.EquationSolver.matches(msg)) {
+//			DelayedSend.SendMessage(
+//				Replace.replacePresets("", Replace.EQUATION, msg), 
+//				Chat.GLOBAL, new Random().nextInt(1000) + 750
+//			);
+//			return;
+//		}
 		
 		if (msg.toLowerCase().contains("+1 ex") &&
 			!msg.contains(":")) {
@@ -40,35 +43,29 @@ public class AutoGG implements Runnable {
 				return;
 		}
 		
-		for (Condition i : Preset.getPresets("gamestart")) {
-			if (i.matches(msg)) {
-				enabled = false;
-				inGame = true;
-				log();
-				return;
-			}
+		if (PresetCondition.getPresetSafe("gamestart").matches(msg)) {
+			enabled = false;
+			inGame = true;
+			log();
+			return;
 		}
 		
 		if (!inGame) return;
 		
-		for (Condition i : Preset.getPresets("gameover")) {
-			if (i.matches(msg)) {
-				enabled = true;
-				inGame = false;
-				timedMessage();				
-				log();
-				return;
-			}
+		if (PresetCondition.getPresetSafe("gameover").matches(msg)) {
+			enabled = true;
+			inGame = false;
+			timedMessage();				
+			log();
+			return;
 		}
 		
-		for (Condition i : Preset.getPresets("lose")) {
-			if (i.matches(msg)) {
-				enabled = true;
-				inGame = false;
-				timedMessage();
-				log();
-				return;
-			}
+		if (PresetCondition.getPresetSafe("lose").matches(msg)) {
+			enabled = true;
+			inGame = false;
+			timedMessage();
+			log();
+			return;
 		}
 	}
 	
@@ -79,7 +76,10 @@ public class AutoGG implements Runnable {
 
 	@Override
 	public void run() {
-		if (enabled && !inGame) The5zigAPI.getAPI().sendPlayerMessage("GG");
+		if (enabled && !inGame) {
+//			The5zigAPI.getAPI().sendPlayerMessage("GG");
+			StateHandler.sendMessage("GG", Chat.GLOBAL, true);
+		}
 	}
 	
 	private static void log() {

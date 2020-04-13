@@ -33,4 +33,9 @@ public class MessageSet {
 	public List<Message> getMessageList() {
 		return messages;
 	}
+	
+	public MessageSet print() {
+		System.out.println(getMessagesString());
+		return this;
+	}
 }

@@ -1,9 +1,6 @@
 package com.dash.core;
 
-import java.awt.Desktop;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -12,18 +9,13 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import javax.xml.bind.annotation.XmlElementDecl.GLOBAL;
 
 import com.dash.message.AutoMessage;
-import com.dash.message.Condition;
-import com.dash.message.Message;
-import com.dash.message.MessageSet;
-import com.dash.message.Preset;
-import com.dash.utils.Chat;
+import com.dash.message.condition.Condition;
+import com.dash.message.condition.Condition.InvalidPresetException;
+import com.dash.message.condition.Condition.ReplaceIncompatibleException;
+import com.dash.message.condition.Condition.SyntaxException;
 import com.dash.utils.ConfigParser;
 import com.dash.utils.Debug;
 
@@ -37,86 +29,97 @@ public class Config {
 	
 	private static List<String> lines = Arrays.asList(
 		//"// Config is in beta, More functionality will be added soon!", 
+//		"",
+//		"INFO:-",
+//		"	// Words between \"s will be searched for in chat. (Case Insensitive)",
+//		"	// If the word(s) are found, you will say the message in chat.",
+//		"	// E.g. !\"Hey\": \"hi guys\"",
+//		"	//      If |hi guys| is found anywhere in chat, you will say |Hey| in global chat",
+//		"	// E.g. @\"Im coming!\": \"Party\" and \"help\" ",
+//		"	//      If |Party| and |help| is found in the same sentence anywhere in chat, you will say |Im coming!| in party chat",
+//		"	// There is also regex support using $\"text to find\"",
+//		"	// E.g. !\"Hey, <Player>!\": [PlayerMessage] and \"<name>\" and $\" (hi)|(hey)\"",
+//		"	//      If Notch in chat says |Hey Dashsmashing| I will say |Hey, Notch!|",
+//		"",
+//		"	// <NAME> will be automatically replaced by", 
+//		"	// your name when inside \"s, E.g. \"My name is <Name>...\"",
+//		"",
+//		"	// If your message contains &x, the  following message will have a rainbow effect (Ranked only)",
+//		"	// Chat Colour Effects:     &x  - Rainbow effect",
+//		"	//                          &y* - Fade colour effect (*colour code)",
+//		"	//                          &z* - Dip colour effect",
+//		"	// Colour codes *:          0   - Black",
+//		"	//                          1   - Blue",
+//		"	//                          2   - Green",
+//		"	//                          3   - Red",
+//		"	// E.g. \"&y3Red dip message\" (Try typing this in chat!)",
+//		"",
+//		"	// Universal presets: <Name> (More added soon!)",
+//		"",
+//		"	// Condition presets: [GameOver],       [LevelUp],        [Killed], [Kill],",
+//		"	//                    [GameJoin],       [PartyJoin],      [GameStart],",
+//		"	//                    [KillAssist],     [PartyAccept],    [FriendJoin],",
+//		"	//                    [Lose],           [DuelRematch],",
+//		"	// Killed by Presets: [KilledWithFire], [KilledWithVoid], [KilledWithTNT],",
+//		"	//                    [KilledWithShot], [KilledWithFall], [KilledWithOther]",
+//		"	//                    [KilledWithMagic]",
+//		"	//                    ([Killed] contains all of these)",
+//		"	// Message Presets:   [PrivateMessage], [FriendMessage],  [GlobalMessage]",
+//		"	//                    [PlayerMessage],  [PartyMessage],   [TeamMessage]",
+//		"	//                    ([Message] includes all of these)",
+//		"",
+//		"	// For the presets [Killed], [Kill], [KilledWith*] in the message:",
+//		"	//     <Killer> will be replaced by the name of the killer",
+//		"	//     <Dead> will be replaced by the name of the player who was killed",
+//		"	// [PartyJoin]:   <Player> name of the player that joined",
+//		"	// [PartyAccept]: <Owner> the owner of the party ",
+//		"	// [DuelRematch]: <Accept> or <Deny>",
+//		"	// [FriendJoin]:  <Friend> name of friend that came online",
+//		"	// [*Message]: <Player> is the name of the player who said the message",
+//		"	//             <Message> is the message said",
+//		"	//             <Ping> is the ping of that player",
+//		"	// [PlayerMessage]: <Player>, <Rank>, <Message>, <Ping>",
+//		"",
+//		"	// You can get words from the line that triggered it,",
+//		"	//     Replace by index of the word in chat",
+//		"	// E.g. \"The third word is: <2>\": \"welcome to cubecraft\"",
+//		"	// 	Line in chat \"Welcome to CubeCraft network\", you would say \"The third word is: CubeCraft\"",
+//		"",
+//		"	// A random message will be chosen if multiple are listed",
+//		"	//     E.g. !\"msg1\", !\"msg2\", @\"msg3\": \"this text\" and not \"that text\"",
+//		"	//     E.g. #\"<Dead> was good!\", #\"<Dead> was bad!\": [Kill]",
+//		"",
+//		"	// !<Message> is Global chat",
+//		"	// @<Message> is Party chat (If possible)",
+//		"	// #<Message> is Team chat (If possible)",
+//		"	// <Message> (no prefix) is current, default chat, E.g. in party chat if enabled",
+//		"",
+//		"MESSAGES:-",
+//		"	// (Prefix){Messages}:           {Conditions}",
+//		"	!\"Good Game!\", !\"Well Played\":   [GameOver] or [Lose]",
+//		"	!\"Good luck!\"                  : [GameStart]",
+//		"	@\"&xLevel Up!\"                 : [LevelUp]",
+//		"	 \"<Accept>\"                    : [DuelRematch]",
+//		"	!\"&xCubelet!\"                  : \"Cubelet found\" and not \":\"",
+//		"",
+//		"",
+//		"	// OPTIONAL MESSAGES: (remove the // to enable)",
+//		"	// \"/leave\"                    : [Death]",
+//		"	// \"Hey!\"                      : [GameJoin] or \" hey \" and \"<NAME>\"",
+//		"	// @\"<DEAD> is easy.\"          : [Kill]",
+//		"	// !\"Good Fight, <KILLER>\"     : [Killed]",
+//		"	\"/f add <Player>\"           : [PlayerMessage] and \"friend\" and $\"(Dashsmashing|Forgiveme):\""
+//		"	// (Prefix){Messages}:           {Conditions}",
 		"",
-		"INFO:-",
-		"	// Words between \"s will be searched for in chat. (Case Insensitive)",
-		"	// If the word(s) are found, you will say the message in chat.",
-		"	// E.g. !\"Hey\": \"hi guys\"",
-		"	//      If |hi guys| is found anywhere in chat, you will say |Hey| in global chat",
-		"	// E.g. @\"Im coming!\": \"Party\" and \"help\" ",
-		"	//      If |Party| and |help| is found in the same sentence anywhere in chat, you will say |Im coming!| in party chat",
-		"	// There is also regex support using $\"text to find\"",
-		"	// E.g. !\"Hey, <Player>!\": [PlayerMessage] and \"<name>\" and $\" (hi)|(hey)\"",
-		"	//      If Notch in chat says |Hey Dashsmashing| I will say |Hey, Notch!|",
+		"!\"Good Game!\", !\"Well Played!\": [GameOver] or [Lose]",
+		"!\"Good luck!\": [GameStart]",
 		"",
-		"	// <NAME> will be automatically replaced by", 
-		"	// your name when inside \"s, E.g. \"My name is <Name>...\"",
+		"@\"&xLevel Up!\": [LevelUp]",
 		"",
-		"	// If your message contains &x, the  following message will have a rainbow effect (Ranked only)",
-		"	// Chat Colour Effects:     &x  - Rainbow effect",
-		"	//                          &y* - Fade colour effect (*colour code)",
-		"	//                          &z* - Dip colour effect",
-		"	// Colour codes *:          0   - Black",
-		"	//                          1   - Blue",
-		"	//                          2   - Green",
-		"	//                          3   - Red",
-		"	// E.g. \"&y3Red dip message\" (Try typing this in chat!)",
+		"\"<Accept>\": [DuelRematch]",
 		"",
-		"	// Universal presets: <Name> (More added soon!)",
-		"",
-		"	// Condition presets: [GameOver],       [LevelUp],        [Killed], [Kill],",
-		"	//                    [GameJoin],       [PartyJoin],      [GameStart],",
-		"	//                    [KillAssist],     [PartyAccept],    [FriendJoin],",
-		"	//                    [Lose],           [DuelRematch],",
-		"	// Killed by Presets: [KilledWithFire], [KilledWithVoid], [KilledWithTNT],",
-		"	//                    [KilledWithShot], [KilledWithFall], [KilledWithOther]",
-		"	//                    [KilledWithMagic]",
-		"	//                    ([Killed] contains all of these)",
-		"	// Message Presets:   [PrivateMessage], [FriendMessage],  [GlobalMessage]",
-		"	//                    [PlayerMessage],  [PartyMessage],   [TeamMessage]",
-		"	//                    ([Message] includes all of these)",
-		"",
-		"	// For the presets [Killed], [Kill], [KilledWith*] in the message:",
-		"	//     <Killer> will be replaced by the name of the killer",
-		"	//     <Dead> will be replaced by the name of the player who was killed",
-		"	// [PartyJoin]:   <Player> name of the player that joined",
-		"	// [PartyAccept]: <Owner> the owner of the party ",
-		"	// [DuelRematch]: <Accept> or <Deny>",
-		"	// [FriendJoin]:  <Friend> name of friend that came online",
-		"	// [*Message]: <Player> is the name of the player who said the message",
-		"	//             <Message> is the message said",
-		"	//             <Ping> is the ping of that player",
-		"	// [PlayerMessage]: <Player>, <Rank>, <Message>, <Ping>",
-		"",
-		"	// You can get words from the line that triggered it,",
-		"	//     Replace by index of the word in chat",
-		"	// E.g. \"The third word is: <2>\": \"welcome to cubecraft\"",
-		"	// 	Line in chat \"Welcome to CubeCraft network\", you would say \"The third word is: CubeCraft\"",
-		"",
-		"	// A random message will be chosen if multiple are listed",
-		"	//     E.g. !\"msg1\", !\"msg2\", @\"msg3\": \"this text\" and not \"that text\"",
-		"	//     E.g. #\"<Dead> was good!\", #\"<Dead> was bad!\": [Kill]",
-		"",
-		"	// !<Message> is Global chat",
-		"	// @<Message> is Party chat (If possible)",
-		"	// #<Message> is Team chat (If possible)",
-		"	// <Message> (no prefix) is current, default chat, E.g. in party chat if enabled",
-		"",
-		"MESSAGES:-",
-		"	// (Prefix){Messages}:           {Conditions}",
-		"	!\"Good Game!\", !\"Well Played\":   [GameOver] or [Lose]",
-		"	!\"Good luck!\"                  : [GameStart]",
-		"	@\"&xLevel Up!\"                 : [LevelUp]",
-		"	 \"<Accept>\"                    : [DuelRematch]",
-		"	!\"&xCubelet!\"                  : \"Cubelet found\" and not \":\"",
-		"",
-		"",
-		"	// OPTIONAL MESSAGES: (remove the // to enable)",
-		"	// \"/leave\"                    : [Death]",
-		"	// \"Hey!\"                      : [GameJoin] or \" hey \" and \"<NAME>\"",
-		"	// @\"<DEAD> is easy.\"          : [Kill]",
-		"	// !\"Good Fight, <KILLER>\"     : [Killed]",
-		"	\"/f add <Player>\"           : [PlayerMessage] and \"friend\" and $\"(Dashsmashing|Forgiveme):\""
+		"!\"&xCubelet!\": [Cubelet]",
+		""
 	);
 	private static List<String> rawMessages;
 	private static List<AutoMessage> messages;
@@ -132,8 +135,8 @@ public class Config {
 			create();
 		} 
 		
-		rawMessages = new ArrayList<String>();
-		messages = new ArrayList<AutoMessage>();
+		rawMessages = new ArrayList<>();
+		messages = new ArrayList<>();
 		
 		The5zigAPI.getLogger().info("Loading config...");
 		try {
@@ -173,10 +176,16 @@ public class Config {
 	
 	private static void registerConfigMessages() {
 		for (String line : rawMessages) {
-			messages.add(
-				new ConfigParser(line)
-					.getCompiledAutoMessage()
-			);
+//			The5zigAPI.getLogger().warn("Compiling: " + line);
+			try {
+				AutoMessage c = ConfigParser.compile(line, true);
+				
+				messages.add(c);
+			} catch (SyntaxException e) {
+				Debug.chatError("Syntax error in: " + line);
+			} catch (ReplaceIncompatibleException | InvalidPresetException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	

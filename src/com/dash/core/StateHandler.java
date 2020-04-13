@@ -1,21 +1,28 @@
 package com.dash.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.dash.message.Preset;
+import com.dash.message.condition.PresetCondition;
 import com.dash.utils.Chat;
+import com.dash.utils.Colour;
 import com.dash.utils.Debug;
 import com.dash.utils.DelayedSend;
 import com.dash.utils.Sidebar;
+import com.dash.utils.Thank;
 
 import eu.the5zig.mod.The5zigAPI;
+import eu.the5zig.mod.The5zigMod;
 import eu.the5zig.mod.event.ChatEvent;
 import eu.the5zig.mod.event.ChatSendEvent;
+import eu.the5zig.mod.event.ServerQuitEvent;
+import eu.the5zig.mod.util.NetworkPlayerInfo;
 import eu.the5zig.util.minecraft.ChatColor;
 
 public class StateHandler {
@@ -24,15 +31,19 @@ public class StateHandler {
 			partyChat = false, xpartyChat = false,
 			inGame = false, xinGame = false,
 			muted = false, xmuted = false,
-			ranked = true;
+			ranked = false, plist = false;
 	public static final String[] 
 			teamNames = {"Team", "BlockWars", "UHC"},
 			soloNames = {"FFA", "Survival", "Quake", "Spleef", "Minerware", "Wing"},
 			gameNames = {"Eggwars"};
+	public static List<String> partyPlayers = new ArrayList<>(),
+			friends = new ArrayList<>();
+	public static int pplayers = 0;
+	public static Map<String, List<String>> teams = new HashMap<>();
 	private static LinkedHashMap  postMute = new LinkedHashMap();
 	private static String  previousMessage = "";
 	private static Chat	   previousChat    = Chat.STANDARD;
-	private static final boolean xD		   = true;
+	private static final boolean xD		   = true;  //false;
 	private static long    lastMessage 	   = 0;
 	
 	public static void init() {
@@ -90,15 +101,15 @@ public class StateHandler {
 		if (isTeamGame() && inGame) global++;
 		if (partyChat) global++;
 		
-		if (marks > global) event.setMessage(msg.substring(marks - global));
+//		if (marks > global) event.setMessage(msg.substring(marks - global));
 	}
 	
 	@Deprecated
 	public static void PC(boolean state) {
-		StateHandler.log();
-		if ((StateHandler.partyChat != state) && StateHandler.inParty) {
+		log();
+		if ((partyChat != state) && inParty) {
 			The5zigAPI.getAPI().sendPlayerMessage("/pc");
-			StateHandler.partyChat = !StateHandler.partyChat;
+			partyChat = !partyChat;
 		}
 	}
 	
@@ -143,10 +154,61 @@ public class StateHandler {
 			if (!msg.startsWith("@")) {
 				prefix = "@";
 			}
+		} else {
+////			Debug.chatInfo("Fake message:");
+////			Debug.chatInfo("" + msg.length());
+//			if (msg.length() > 255) {
+//				int min, max = 0;
+//				do {
+//					min = max;
+//					max = min+msg.substring(min, min+255).lastIndexOf('\n', min+255-1);
+//					if (max <= min)  {
+////						Chat.fakePartyMessage("" + msg.substring(min));
+////						return;
+//						max = min + 255;
+//					}
+//					
+////					Debug.chatDebug(min + ", " + max + " -> " + (max-min) + " (" + (msg.length()-max) + ")");
+//					Chat.fakePartyMessage("" + msg.substring(min, max));
+//				} while (msg.length()-max >= 255);
+////				Debug.chatDebug(max + ", " + msg.length() + " - " + (msg.length()-max));
+//				Chat.fakePartyMessage(msg.substring(max));
+//			} else {
+//				Chat.fakePartyMessage(msg);
+//			}
+			Chat.fakePartyMessage(msg);
+			return;
 		}
 		
 		
-		chatMessage(prefix + msg, Chat.PARTY);
+//		Debug.chatInfo("" + msg.length());
+		int len = 200;
+		if (msg.length() > len) {
+			int min, max = 0, i = 0;
+			do {
+				min = max;
+				max = min+msg.substring(min, min+len).lastIndexOf('\n', min+len-1);
+				if (max <= min)  {
+//					DelayedSend.SendMessage(prefix + msg.substring(min), Chat.PARTY, i*200);
+//					return;
+					max = min + len;
+				}
+				
+//				Debug.chatDebug(min + ", " + max + " -> " + (max-min) + " (" + (msg.length()-max) + ")");
+				DelayedSend.SendMessage("" + msg.substring(min, max), Chat.PARTY, 200*i);
+				i++;
+			} while (msg.length()-max >= len);
+//			Debug.chatDebug(max + ", " + msg.length() + " - " + (msg.length()-max));
+			DelayedSend.SendMessage(prefix + msg.substring(max), Chat.PARTY, 200*i);
+//			int i = 0;
+//			for (String s : msg.split("\n+(?=.+\n?)")) {
+//				DelayedSend.SendMessage(prefix + s, Chat.PARTY, 3000*i);
+//				i++;
+//			}
+		} else {
+			chatMessage(prefix + msg, Chat.PARTY);
+		}
+		return;
 	}
 	
 	public static void TeamMessage(String msg) {
@@ -162,6 +224,11 @@ public class StateHandler {
 	}
 	
 	public static void sendMessage(String msg, Chat out, boolean delayed) {
+		if (out == Chat.PARTY && !inParty)  {
+			msg = Colour.forceRecolour(msg);
+		} else {
+			msg = Colour.recolour(msg);			
+		}
 		if (delayed) {
 			DelayedSend.SendMessage(msg, out);
 		} else {
@@ -178,10 +245,11 @@ public class StateHandler {
 		}
 		
 		switch (out)  {
-			case GLOBAL:   StateHandler.GlobalMessage(msg); return;
-			case PARTY:	   StateHandler.PartyMessage(msg); return;
-			case STANDARD: StateHandler.StandardMessage(msg); return;
-			case TEAM:     StateHandler.TeamMessage(msg); return;
+			case GLOBAL:   	GlobalMessage(msg); return;
+			case PARTY:	   	PartyMessage(msg); return;
+			case STANDARD: 	StandardMessage(msg); return;
+			case TEAM:     	TeamMessage(msg); return;
+			default:		return;
 		}
 	}
 	
@@ -225,93 +293,203 @@ public class StateHandler {
 		return System.currentTimeMillis() - lastMessage;
 	}
 	
+	public static void updateStates(ServerQuitEvent event) {
+		ranked = false;
+		inParty = false;
+		partyChat = false;
+	}
+	
 	public static void updateStates(ChatEvent event, String msg) {
+		if (PresetCondition.FriendsList.matches(msg)) {
+			friends.clear();
+			String[] lines = msg.split("\n");
+			
+			for (int i = 1; i < lines.length; i++) {
+				if (lines[i].matches("\\w+ - .*")) {
+					friends.add(lines[i].split(" ")[0]);
+				} else {
+					break;
+				}
+			}
+			
+			if (msg.contains("Offline:")) {
+				String[] split = msg.split("Offline:\n", 2);
+				
+				friends.addAll(Arrays.asList(split[1].split(", ")));
+			}
+			
+//			Debug.chatDebug("Friends: (" + friends.size() + ") " + friends.toString());
+			
+			if (Main.flist) {
+				Main.flist = false;
+				event.setCancelled(true);
+			}
+		}
+		
+		if (PresetCondition.PartyAccept.matches(msg)) {
+			plist = true;
+			sendChatOutput("/p info", Chat.STANDARD);
+		}
+		
+		if (PresetCondition.PartyJoin.matches(msg)) {
+			partyPlayers.add(msg.split(" ")[2]);
+//			Debug.chatDebug("Added player: " + msg.split(" ")[2]);
+		}
+		
+		if (PresetCondition.PartyLeft.matches(msg)) {
+//			Debug.chatDebug("Players: " + partyPlayers.size());
+			String name = msg.split(" ")[2];
+			partyPlayers = partyPlayers.stream()
+				.filter(n -> !n.equals(name))
+				.collect(Collectors.toList());
+//			Debug.chatDebug("Removed player: " + name);
+//			Debug.chatDebug("Player: " + partyPlayers.size());
+		}
+		
+		if (PresetCondition.PartyLeave.matches(msg)) {
+			partyPlayers.clear();
+		}
+		
+		if (PresetCondition.PartyInfo.matches(msg) || (pplayers > 0 && msg.matches("\\w+"))) {
+			if (msg.toLowerCase().contains("party status")) {
+				pplayers = Integer.parseInt(msg.split("[\\(/]")[1]);
+				partyPlayers.clear();
+			}
+			
+			if (msg.toLowerCase().contains(" - kick")) {
+				pplayers--;
+				String name = msg.split(" ", 2)[0];
+				if (!name.equals(Main.name)) {
+					partyPlayers.add(name);
+//					Debug.chatDebug("Added to party: " + partyPlayers.get(partyPlayers.size()-1));
+				}
+			} else if (msg.startsWith("Owner:")) {
+				pplayers--;
+				String name = msg.split(" ", 2)[1];
+				if (!name.equals(Main.name)) {
+					partyPlayers.add(name);
+				}
+//				Debug.chatDebug("Added to the party: " + name);
+			} else if (msg.matches("\\w+")) {
+				pplayers--;
+				String name = msg;
+				if (!name.equals(Main.name)) {
+					partyPlayers.add(name);
+				}
+//				Debug.chatDebug("Added to the party: " + name);
+			}
+			
+			if (plist) {
+				event.setCancelled(true);
+				if (pplayers == 0) {
+					plist = false;
+				}
+			}
+		}
+		
+		if (PresetCondition.Thanked.matches(msg) && Thank.thanking > 0) {
+//			Debug.chatDebug("Got to Thanked");
+			event.setCancelled(true);
+//			event.setMessage("Cancelled.");
+			Thank.thanking--;
+//			Debug.chatState("thanking = " + Thank.thanking);
+		}
+		
+		if (PresetCondition.Thanking.matches(msg) && Thank.thanking > 0) {
+			Thank.thanking--;
+//			Debug.chatState("thanking = " + Thank.thanking);
+		}
+		
 		// Not in party
-		if (Preset.PartyLeave1.matches(msg) ||
-			Preset.PartyLeave2.matches(msg) ||
-			Preset.PartyLeave3.matches(msg) ||
-			Preset.PartyLeave4.matches(msg)
-			) {
+		if (PresetCondition.PartyLeave.matches(msg)) {
 				inParty = partyChat = false;
-				if (System.currentTimeMillis() - Main.time < 1000) {
+//				if (System.currentTimeMillis() - Main.time < 1000) {
+				if (Main.party) {
+					Main.party = false;
 					event.setCancelled(true);
 				}
 				log();
 		}
 		
 		// Joined a party
-		if (Preset.PartyAccept.matches(msg) ||
-			Preset.PartyJoin.matches(msg)
+		if (PresetCondition.PartyAccept.matches(msg) ||
+			PresetCondition.PartyJoin.matches(msg)
 			) {
 				inParty = true;
 				log();
 		}
 		
 		// Party chat - enabled
-		if (Preset.PartyEnable.matches(msg)) {
+		if (PresetCondition.PartyEnable.matches(msg)) {
 			inParty = partyChat = true;
-			if (System.currentTimeMillis() - Main.time < 3000) {
+//			if (System.currentTimeMillis() - Main.time < 3000) {
+			if (Main.party) {
+				Main.party = false;
+				plist = true;
 				event.setCancelled(true);
-				DelayedSend.SendMessage("/pc", Chat.STANDARD, 1000);
+				DelayedSend.SendMessage("/pc", Chat.STANDARD, 0*1000);
+				DelayedSend.SendMessage("/p info", Chat.STANDARD, 0*1000);				
 			}
 			log();
 		}
 		
 		// Party chat - disabled
-		if (Preset.PartyDisable.matches(msg)) {
+		if (PresetCondition.PartyDisable.matches(msg)) {
 			inParty = true;
 			partyChat = false;
-			if (System.currentTimeMillis() - Main.time < 1000) {
+//			if (System.currentTimeMillis() - Main.time < 1000) {
+			if (Main.party) {
+				Main.party = false;
+				plist = true;
 				event.setCancelled(true);
-				DelayedSend.SendMessage("/pc", Chat.STANDARD, 1000);
+				DelayedSend.SendMessage("/pc", Chat.STANDARD, 0*1000);
+				DelayedSend.SendMessage("/p info", Chat.STANDARD, 0*1000);			
 			}
 			log();
 		}
 		
 		// Game start
-		if (Preset.GameEnter.matches(msg) ||
-			Preset.GameStart2.matches(msg)
-			) {
+		if (PresetCondition.GameStartSH.matches(msg)) {
 				inGame = true;
 				//Debug.chatDebug("Updated inGame: True");
 				log();
+				
 		}
 		
 		// Game end
-		if (Preset.GameOver1.matches(msg) ||
-			Preset.GameOver2.matches(msg) ||
-			Preset.GameOver3.matches(msg) ||
-			Preset.GameOver4.matches(msg) ||
-			Preset.GameOver5.matches(msg) ||
-			Preset.GameOver7.matches(msg) ||
-			Preset.MainLobby.matches(msg) ||
-			Preset.Lose1.matches(msg) 	  ||
-			Preset.Lose2.matches(msg)
-			) {
+		if (PresetCondition.GameOver.matches(msg) ||
+			PresetCondition.MainLobby.matches(msg) ||
+			PresetCondition.Lose.matches(msg)) {
 				inGame = false;
 				log();
 		}
 		
 		// Slash who? Getting rank...
-		if (Preset.Who.matches(msg)) {
-			String[] who = msg.split(" ");
+		if (PresetCondition.Who.matches(msg)) {
+			String[] who = msg.split(",? ");
 			
-			for (int i = 0; i < who.length; i++) {
-				
-				if (who[i].contains(The5zigAPI.getAPI().getGameProfile().getName())) {
-					ranked = !who[i-1].startsWith(":Stone");
-					//Debug.chatState("Ranked = " + ranked);
+			ranked = true;
+			for (int i = who.length-1; i > 5; i--) {
+				if (who[i].equals(Main.name)) {
+					ranked = !who[i-1].equals(":Stone:");
+//					Debug.chatState("Ranked = " + ranked);
 					break;
-				}
+				} 
+//				else {
+//					ranked = true;
+//				}
 			}
-			
-			if (System.currentTimeMillis() - Main.time < 3000) {
+//			Debug.chatState("Ranked = " + ranked);
+//			if (System.currentTimeMillis() - Main.time < 3000) {
+			if (Main.who) {
+				Main.who = false;
 				event.setCancelled(true);
 			}
 		}
 		
 		// Unmuted, solo games
-		unmute: if (muted && (msg.contains("Go!") || msg.contains("Let the games begin") || msg.contains("20 second"))) {
+//		unmute: if (muted && (msg.contains("Go!") || msg.contains("Let the games begin") || msg.contains("20 second"))) {
+		unmute: if (PresetCondition.Unmute.matches(msg)) {
 			muted = false;
 			log();
 			if (postMute.isEmpty()) break unmute;
@@ -329,7 +507,7 @@ public class StateHandler {
 		}
 		
 		// Unmute but clear auto messages
-		if (muted && Preset.MainLobby.matches(msg)) {
+		if (muted && PresetCondition.MainLobby.matches(msg)) {
 			muted = false;
 			log();
 			postMute.clear();
